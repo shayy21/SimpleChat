@@ -4,6 +4,9 @@ package edu.seg2105.edu.server.backend;
 // license found at www.lloseng.com 
 
 
+import java.io.IOException;
+
+import edu.seg2105.client.common.ChatIF;
 import ocsf.server.*;
 
 /**
@@ -24,6 +27,9 @@ public class EchoServer extends AbstractServer
    */
   final public static int DEFAULT_PORT = 5555;
   
+  //instance variables 
+  ChatIF serverUI; 
+  
   //Constructors ****************************************************
   
   /**
@@ -31,9 +37,18 @@ public class EchoServer extends AbstractServer
    *
    * @param port The port number to connect on.
    */
-  public EchoServer(int port) 
+  public EchoServer(int port, ChatIF serverUI) 
   {
     super(port);
+    this.serverUI = serverUI;
+    try 
+    {
+      listen(); //Start listening for connections
+    } 
+    catch (Exception ex) 
+    {
+      System.out.println("ERROR - Could not listen for clients!");
+    }
   }
 
   
@@ -48,8 +63,95 @@ public class EchoServer extends AbstractServer
   public void handleMessageFromClient
     (Object msg, ConnectionToClient client)
   {
-    System.out.println("Message received: " + msg + " from " + client);
-    this.sendToAllClients(msg);
+	serverUI.display("Message received: <" + msg + "> from <" +client.getInfo("loginID")+">");
+	
+	String msgStr = (String)msg; 
+	
+	if (msgStr.startsWith("#login")) {
+		
+		int start = msgStr.indexOf('<') +1;
+		int end = msgStr.lastIndexOf('>');
+		String loginID = msgStr.substring(start, end);
+		
+		if (client.getInfo("loginID") == null) {
+			client.setInfo("loginID",loginID);
+			serverUI.display("<"+ loginID +"> has logged on.");
+			
+			
+		}else {
+			try {
+				client.sendToClient("Error: You are already logged in. Closing connection.");
+				client.close();
+			} catch (IOException e) {
+				serverUI.display("Error: cannot send message to client.");
+			}
+		}
+			
+	}else {
+		String loginID = (String)client.getInfo("loginID");
+	    this.sendToAllClients(">"+ loginID +":"+ msg );    
+	}
+  }
+  
+  /**
+   * This method handles all data coming from the UI            
+   *
+   * @param message The message from the UI.    
+ * @throws IOException 
+   */
+  public void handleMessageFromServerUI(String message) throws IOException
+  {
+	  
+    if (message.startsWith("#")) {
+    	handleCommand(message);
+    }else {
+    	serverUI.display("<SERVER MSG> " +message);
+    	sendToAllClients("<SERVER MSG> " +message);
+    }
+      
+  }
+  
+  private void handleCommand(String command) {
+	  
+	  if (command.equals("#quit")) {
+		  //what to do here?
+		  System.exit(1); 
+	  }
+	  else if(command.equals("#stop")) {
+		  stopListening();
+	  }
+	  else if(command.equals("#close")) {
+		  try {
+				close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+	  }
+	  else if(command.startsWith("#setport")) {
+		  int start = command.indexOf('<') +1;
+		  int end = command.lastIndexOf('>');
+		  String port = command.substring(start, end);
+		  
+		  if(!isListening()) {
+			  setPort(Integer.parseInt(port));
+			  serverUI.display("new port is set");
+		  }else {
+			  serverUI.display("Cannot execute command #setport if the server is not closed!");
+		  }  
+	  }
+	  else if(command.equals("#start")) {
+		  if(!isListening()) {
+			  try {
+				listen();
+			} catch (IOException e) {
+				serverUI.display("Error! Server could not start listening for new clients.");
+			}
+		  }
+	  }
+	  else if(command.equals("#getport")) {
+		  serverUI.display(String.valueOf(getPort()));
+	  }
+	  
   }
     
   /**
@@ -74,37 +176,29 @@ public class EchoServer extends AbstractServer
   
   
   //Class methods ***************************************************
+
   
   /**
-   * This method is responsible for the creation of 
-   * the server instance (there is no UI in this phase).
-   *
-   * @param args[0] The port number to listen on.  Defaults to 5555 
-   *          if no argument is entered.
-   */
-  public static void main(String[] args) 
-  {
-    int port = 0; //Port to listen on
+	 * Implementing the Hook method called each time a new client connection is
+	 * accepted. The default implementation does nothing.
+	 * @param client the connection connected to the client.
+	 */
+	protected void clientConnected(ConnectionToClient client) {
+		System.out.println("A new client has connected to the server.");	
+	}
 
-    try
-    {
-      port = Integer.parseInt(args[0]); //Get port from command line
-    }
-    catch(Throwable t)
-    {
-      port = DEFAULT_PORT; //Set port to 5555
-    }
-	
-    EchoServer sv = new EchoServer(port);
-    
-    try 
-    {
-      sv.listen(); //Start listening for connections
-    } 
-    catch (Exception ex) 
-    {
-      System.out.println("ERROR - Could not listen for clients!");
-    }
-  }
+	/**
+	 * Implementing the Hook method called each time a client disconnects.
+	 * The default implementation does nothing. The method
+	 * may be overridden by subclasses but should remains synchronized.
+	 *
+	 * @param client the connection with the client.
+	 * @throws  
+	 */
+	synchronized protected void clientDisconnected(
+		ConnectionToClient client) {
+		System.out.println("The client: <"+client.getInfo("loginID")+ "> has disconnected!");
+		
+	}
 }
 //End of EchoServer class
