@@ -51,13 +51,9 @@ public class ClientConsole implements ChatIF
    */
   public ClientConsole(String clientID, String host, int port) 
   {
-	System.out.println("ClientConsole constructor: Attempting to connect with login ID: " + clientID);
-	System.out.println("ClientConsole constructor Host: " + host + ", Port: " + port);
-    
 	try 
     {
       client= new ChatClient(clientID, host, port, this);
-      
       
     } 
     catch(IOException exception) 
