@@ -114,8 +114,7 @@ public class EchoServer extends AbstractServer
   private void handleCommand(String command) {
 	  
 	  if (command.equals("#quit")) {
-		  //what to do here?
-		  System.exit(1); 
+		  System.exit(0); 
 	  }
 	  else if(command.equals("#stop")) {
 		  stopListening();
